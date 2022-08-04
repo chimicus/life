@@ -1,0 +1,8 @@
+Use ncurses like to improve output
+
+Add commands to pause / step through successive iterations
+
+Add the possibility of going backward
+
+
+Make the matrix into a class
