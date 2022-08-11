@@ -243,3 +243,16 @@ fn main() {
         process::exit(1);
     }
 }
+
+// Unit tests
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn check_init() {
+        let arena_size = 5;
+        let matrix =  init_arena(arena_size);
+        assert_eq!(matrix.capacity(), 5);
+    }
+}
