@@ -12,7 +12,7 @@ use std::process;
 use std::ops::Shr;
 use std::ops::Sub;
 use std::fs::File;
-use std::io::{BufReader, BufRead, Error};
+use std::io::{BufReader, BufRead, Error, ErrorKind};
 use spin_sleep;
 const ARENA_SIZE: usize = 40;
 
@@ -52,7 +52,7 @@ impl Shr<usize> for Point {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct Matrix {
     m: Vec<Vec<bool>>,
     size: usize
@@ -108,6 +108,8 @@ impl Matrix {
         return new_m;
     }
     fn count_alive_neighbours(&self, row_idx: usize, col_idx: usize) -> u32 {
+        assert!(row_idx < self.m.len());
+        assert!(col_idx < self.m[row_idx].len());
     	let start_row = if row_idx > 0 {row_idx - 1} else {(row_idx as isize - 1 + self.m.len() as isize) as usize};
     	let start_col = if col_idx > 0 {col_idx - 1} else {(col_idx as isize - 1 + self.m[row_idx].len() as isize) as usize};
     	let end_row = (row_idx + 1) % self.m.len();
@@ -178,7 +180,9 @@ fn parse_file(input_file: &str, arena_size: usize) -> Result<Matrix, Error> {
                         }
                     }
                     else {
-                        println!("Not handling this as yet\n");
+                        println!("arena size too small for file! row {}, col {}, capacity {}, row cap {}",
+                                 row, col, matrix.capacity(), matrix.m[row].capacity());
+                        return Err(Error::new(ErrorKind::InvalidInput, "arena too small"));
                     }
                     col = col + 1;
                 }
@@ -295,20 +299,17 @@ mod tests {
     }
 
     #[test]
-    fn check_parse_file() {
+    fn check_parse_file_valid() {
        let input_file = "./data/toad.txt";
-       let matrix = parse_file(input_file, 10).unwrap();
+       let matrix = parse_file(input_file, 7).unwrap();
        let data_correct = vec![
-           [false, false, false, false, false, false, false, false, false, false],
-           [false, true,  true,  true,  false, false, false, false, false, false],
-           [true,  true,  true,  false, false, false, false, false, false, false],
-           [false, false, false, false, false, false, false, false, false, false],
-           [false, false, false, false, false, false, false, false, false, false],
-           [false, false, false, false, false, false, false, false, false, false],
-           [false, false, false, false, false, false, false, false, false, false],
-           [false, false, false, false, false, false, false, false, false, false],
-           [false, false, false, false, false, false, false, false, false, false],
-           [false, false, false, false, false, false, false, false, false, false]
+           [false, false, false, false, false, false, false],
+           [false, true,  true,  true,  false, false, false],
+           [true,  true,  true,  false, false, false, false],
+           [false, false, false, false, false, false, false],
+           [false, false, false, false, false, false, false],
+           [false, false, false, false, false, false, false],
+           [false, false, false, false, false, false, false],
        ];
        assert_eq!(data_correct.len(), matrix.m.len());
        for lines in data_correct.iter().zip(matrix.m.iter())
@@ -323,28 +324,59 @@ mod tests {
     }
 
     #[test]
+    fn check_parse_file_matrix_too_small() {
+       let input_file = "./data/toad.txt";
+       let matrix = parse_file(input_file, 5).map_err(|e|e.kind());
+       assert_eq!(matrix, Err(ErrorKind::InvalidInput));
+    }
+
+    #[test]
+    fn check_alive_neighbours_good() {
+       let input_file = "./data/toad.txt";
+       let matrix = parse_file(input_file, 7).unwrap();
+       // Beginning
+       assert_eq!(matrix.count_alive_neighbours(0, 0), 1);
+       // End
+       assert_eq!(matrix.count_alive_neighbours(4, 4), 0);
+       // somewhere in the centre
+       assert_eq!(matrix.count_alive_neighbours(2, 2), 4);
+       // different indexes
+       assert_eq!(matrix.count_alive_neighbours(2, 4), 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn check_alive_neighbours_bad() {
+       let input_file = "./data/toad.txt";
+       let matrix = parse_file(input_file, 7).unwrap();
+       // too big an index
+       assert_eq!(matrix.count_alive_neighbours(7, 9), 1);
+    }
+
+    #[test]
     fn check_update_matrix() {
        let input_file = "./data/toad.txt";
-       let matrix = parse_file(input_file, 5).unwrap();
+       let matrix = parse_file(input_file, 7).unwrap();
        let new_m = matrix.update_matrix();
        let data_correct = vec![
-           [false, false, true,  false, false],
-           [true,  false, false, true,  false],
-           [true,  false, false, true,  false],
-           [false, true,  false, false, false],
-           [false, false, false, false, false],
+           [false, false, true,  false, false, false, false],
+           [true,  false, false, true,  false, false, false],
+           [true,  false, false, true,  false, false, false],
+           [false, true,  false, false, false, false, false],
+           [false, false, false, false, false, false, false],
+           [false, false, false, false, false, false, false],
+           [false, false, false, false, false, false, false],
        ];
        assert_eq!(data_correct.len(), new_m.m.len());
        for lines in data_correct.iter().zip(new_m.m.iter())
        {
-           println!("New line");
            let (correct_line, ut_line) = lines;
            for cols in correct_line.iter().zip(ut_line.iter())
            {
                let (correct_col, ut_col) = cols;
-               println!("correct: {}, ut: {}", correct_col, ut_col);
                assert_eq!(correct_col, ut_col);
            }
        }
     }
+
 }

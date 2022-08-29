@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 clap = "2.33.3"
 spin_sleep = "1.0.0"
+errno = "*"
+libc = "*"
