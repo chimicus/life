@@ -1,5 +1,5 @@
-1) Make the matrix into a class
-2) Add unit tests
+1) Make the matrix into a class - DONE
+2) Add unit tests - DONE
 3) Use gtk or similar to improve output
 4) Add commands to pause / step through successive iterations
 5) Add the possibility of going backward
