@@ -9,134 +9,17 @@
 extern crate clap;
 use clap::{Arg, App, ArgMatches};
 use std::process;
-use std::ops::Shr;
-use std::ops::Sub;
 use std::fs::File;
 use std::io::{BufReader, BufRead, Error, ErrorKind};
 use spin_sleep;
+
+use crate::matrix::Matrix;
+use crate::point::Point;
+
 const ARENA_SIZE: usize = 40;
 
-struct Point {
-	row: usize,
-	col: usize,
-}
-
-impl Sub for Point {
-    type Output = Self;
-
-    fn sub(self, p: Point) -> Point {
-        let r = Point {
-            row:  (self.row as i64 - p.row as i64).abs() as usize,
-            col:  (self.col as i64 - p.col as i64).abs() as usize
-        };
-        return r
-    }
-}
-impl Sub<usize> for Point {
-    type Output = Self;
-
-    fn sub(self, s: usize) -> Point {
-        let r = Point {
-            row:  (self.row as i64 - s as i64).abs() as usize,
-            col:  (self.col as i64 - s as i64).abs() as usize
-        };
-        return r
-    }
-}
-
-impl Shr<usize> for Point {
-    type Output = Self;
-
-    fn shr(self, shr: usize) -> Self {
-        Self {row: self.row >> shr, col: self.col >> shr}
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct Matrix {
-    m: Vec<Vec<bool>>,
-    size: usize
-}
-
-impl Matrix {
-
-    pub fn new(size: usize) -> Self {
-        Self { m: Vec::with_capacity(size), size: size }
-    }
-
-    fn capacity(&self) -> usize {
-        self.size
-    }
-
-    fn init(&mut self) {
-        for ii in 0..self.size {
-            self.m.push(Vec::with_capacity(self.size));
-            for _jj in 0..self.size {
-                self.m[ii].push(false)
-            }
-        }
-    }
-    fn update_matrix(&self) -> Matrix {
-        /* Rules for the update:
-         * - Any live cell with fewer than two live neighbours dies, as if by underpopulation.
-         * - Any live cell with two or three live neighbours lives on to the next generation.
-         * - Any live cell with more than three live neighbours dies, as if by
-         * overpopulation.
-         * - Any dead cell with exactly three live neighbours becomes a live cell, as if
-         * by reproduction.
-         *
-         * Each cell has 8 neighbours and the plane has no boundaries (IE: wrap around)
-         *
-    	 */
-        let mut new_m = self.clone();
-        let m = self.m.clone();
-    	for (row_idx, line) in m.iter().enumerate() {
-    		for (col_idx, cell) in line.iter().enumerate() {
-    			let num_alive_neighbours = self.count_alive_neighbours(row_idx, col_idx);
-    			new_m.m[row_idx][col_idx] = *cell;
-    			if *cell {
-    				if num_alive_neighbours < 2 || num_alive_neighbours > 3 {
-    					new_m.m[row_idx][col_idx] = false;
-    				}
-    			} else {
-    				if num_alive_neighbours == 3 {
-    					new_m.m[row_idx][col_idx] = true;
-    				}
-    			}
-    		}
-    	}
-        return new_m;
-    }
-    fn count_alive_neighbours(&self, row_idx: usize, col_idx: usize) -> u32 {
-        assert!(row_idx < self.m.len());
-        assert!(col_idx < self.m[row_idx].len());
-    	let start_row = if row_idx > 0 {row_idx - 1} else {(row_idx as isize - 1 + self.m.len() as isize) as usize};
-    	let start_col = if col_idx > 0 {col_idx - 1} else {(col_idx as isize - 1 + self.m[row_idx].len() as isize) as usize};
-    	let end_row = (row_idx + 1) % self.m.len();
-    	let end_col = (col_idx + 1) % self.m[row_idx].len();
-
-    	self.m[start_row][start_col] as u32 +
-        self.m[start_row][col_idx] as u32 +
-        self.m[start_row][end_col] as u32 +
-
-    	self.m[row_idx][start_col] as u32 +
-        self.m[row_idx][end_col] as u32 +
-
-    	self.m[end_row][start_col] as u32 +
-        self.m[end_row][col_idx] as u32 +
-        self.m[end_row][end_col] as u32
-    }
-}
-
-fn center(matrix: &mut Matrix , start: Point, end: Point) {
-    let half_length = (end - start) >> 1;
-    let new_start = half_length - matrix.capacity();
-    let m = &mut matrix.m;
-	for line in &mut m.into_iter() {
-		line.rotate_right(new_start.col);
-	}
-	matrix.m.rotate_right(new_start.row);
-}
+pub mod point;
+pub mod matrix;
 
 fn parse_file(input_file: &str, arena_size: usize) -> Result<Matrix, Error> {
     let mut matrix = Matrix::new(arena_size);
@@ -193,7 +76,7 @@ fn parse_file(input_file: &str, arena_size: usize) -> Result<Matrix, Error> {
         }
         row = row + 1;
     }
-    center(&mut matrix, start_point, end_point);
+    matrix.center(start_point, end_point);
     Ok(matrix)
 }
 
